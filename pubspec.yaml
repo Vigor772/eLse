@@ -39,6 +39,12 @@ dependencies:
   get: ^4.6.5
   google_fonts: ^3.0.1
   convex_bottom_bar: ^3.0.0
+  firebase_core:
+  firebase_auth:
+  cloud_firestore:
+  internet_connection_checker: ^1.0.0+1
+  image_picker:
+  firebase_storage:
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -79,6 +85,7 @@ flutter:
     - assets/images/icons8-heart-96 1.png
     - assets/images/Group 1.png
     - assets/images/cpr.gif
+    - assets/images/loading_image.gif
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

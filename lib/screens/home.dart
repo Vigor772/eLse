@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:convex_bottom_bar/convex_bottom_bar.dart';
+import 'package:else_revamp/screens/login.dart';
+import 'package:else_revamp/screens/profile.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +15,27 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  String name = '';
+  getName() async {
+    String useruid = FirebaseAuth.instance.currentUser!.uid;
+    var getUserInfo = await FirebaseFirestore.instance
+        .collection('users')
+        .where('uid', isEqualTo: useruid)
+        .get();
+    setState(() {
+      for (var snapshots in getUserInfo.docs) {
+        Map<String, dynamic> data = snapshots.data();
+        name = data['name'] ?? 'Loading...';
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    getName();
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +71,7 @@ class _HomeState extends State<Home> {
                     padding: const EdgeInsets.only(bottom: 16),
                     alignment: Alignment.center,
                     child: Text(
-                      'Hello, Dane!',
+                      'Hello, $name',
                       style: GoogleFonts.fanwoodText(
                           fontSize: 25, color: Colors.white),
                     ),
@@ -75,7 +100,10 @@ class _HomeState extends State<Home> {
                   ),
                 ),
                 onPressed: () {
-                  Get.toNamed('/profile');
+                  //Get.toNamed('/profile');
+                  Navigator.of(context).pushReplacement(MaterialPageRoute(
+                    builder: (context) => Profile(),
+                  ));
                 }),
           ),
           Container(
@@ -123,7 +151,30 @@ class _HomeState extends State<Home> {
                 onPressed: () {
                   Get.toNamed('/cpr');
                 }),
-          )
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 21),
+            width: 380,
+            height: 60,
+            child: ElevatedButton.icon(
+                icon: const Tab(icon: Icon(Icons.logout)),
+                label: Text(
+                  'Log Out',
+                  style: GoogleFonts.fanwoodText(
+                      fontSize: 20, color: Colors.black),
+                ),
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(20)),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (context) => const LogIn()));
+                  FirebaseAuth.instance.signOut();
+                }),
+          ),
         ],
       ),
       bottomNavigationBar: ConvexAppBar(

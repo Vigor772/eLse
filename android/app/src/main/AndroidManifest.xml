@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.else_revamp">
    <application
-        android:label="else_revamp"
+        android:label="Else Revamp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
