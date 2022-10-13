@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart' as UrlLauncher;
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -16,6 +17,9 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   String name = '';
+  String callNumber = '911';
+
+  // function to get the Name of the user from database to display
   getName() async {
     String useruid = FirebaseAuth.instance.currentUser!.uid;
     var getUserInfo = await FirebaseFirestore.instance
@@ -28,6 +32,16 @@ class _HomeState extends State<Home> {
         name = data['name'] ?? 'Loading...';
       }
     });
+  }
+
+  // function that navigates the user outside the app
+  // then dials 911 and ready for calling
+  dialCall() async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: '911',
+    );
+    await UrlLauncher.launchUrl(launchUri);
   }
 
   @override
@@ -201,6 +215,11 @@ class _HomeState extends State<Home> {
             case 3:
               {
                 Get.toNamed('/faq');
+              }
+              break;
+            case 4:
+              {
+                dialCall();
               }
               break;
           }

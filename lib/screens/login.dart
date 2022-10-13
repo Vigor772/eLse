@@ -119,9 +119,11 @@ class _LogInState extends State<LogIn> {
                 onPressed: () async {
                   final String username = usernameController.text.trim();
                   final String password = passwordController.text.trim();
-                  bool hasInternet =
-                      await InternetConnectionChecker().hasConnection;
+                  bool hasInternet = //from plugin to check if there is internet
+                      await InternetConnectionChecker()
+                          .hasConnection; //connection, returns true if there is
                   if (username.isEmpty || password.isEmpty) {
+                    //popup dialog that notifies users when there are fields not filled out
                     showDialog(
                         context: context,
                         builder: (context) {
@@ -145,6 +147,8 @@ class _LogInState extends State<LogIn> {
                           );
                         });
                   } else if (hasInternet == true) {
+                    //executes signing in of users if there is internet connection
+                    //then shows popup error if they failed to sign in
                     try {
                       await FirebaseAuth.instance.signInWithEmailAndPassword(
                           email: '$username@else.revamp', password: password);

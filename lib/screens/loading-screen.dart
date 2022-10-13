@@ -1,9 +1,9 @@
 import 'dart:async';
-
-import 'package:else_revamp/screens/home.dart';
-import 'package:else_revamp/screens/login.dart';
 import 'package:flutter/material.dart';
 
+//app loading screen whenever the app is opened
+// can be reused to load into different pages
+//requires a page to navigate into after the loading screen finishes
 class LoadingScreen extends StatefulWidget {
   final Widget navigate;
   const LoadingScreen({super.key, required this.navigate});

@@ -298,6 +298,8 @@ class _SignUpState extends State<SignUp> {
                                 );
                               });
                         } else if (hasInternet == true) {
+                          //proceeds to create user account if there is internet and notifies the user
+                          //if creating the account is successful or has failed.
                           try {
                             await FirebaseAuth.instance
                                 .createUserWithEmailAndPassword(

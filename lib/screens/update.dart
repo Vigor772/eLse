@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:else_revamp/cloud_services/update_userdata.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/src/foundation/key.dart';
 import 'package:flutter/src/widgets/framework.dart';
@@ -10,6 +12,8 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:image_picker/image_picker.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:path/path.dart' as path;
 
 class Update extends StatefulWidget {
   var name;
@@ -31,9 +35,15 @@ class _UpdateState extends State<Update> {
   TextEditingController rnewpasswordController = TextEditingController();
   firebase_storage.FirebaseStorage storage =
       firebase_storage.FirebaseStorage.instance;
+  late String profilePic = '';
   late String fileName;
-  late File image;
+  late File imageFile;
+  late String imageURL = '';
+  bool doneLoading = false;
 
+  //function to retreive current user data saved on database
+  //that are also set to be editable or can be updated by the users
+  //using the app's update functionality
   getUserInfotoEdit() async {
     String useruid = FirebaseAuth.instance.currentUser!.uid;
     var getUserInfo = await FirebaseFirestore.instance
@@ -48,18 +58,60 @@ class _UpdateState extends State<Update> {
         emailController.text = data['email'];
         password = data['password'];
         ageController.text = data['age'] ?? 'Not set';
+        profilePic = data['profile_picture'] ?? '';
       }
     });
     return password;
   }
 
+  //Function to allow users to pick image from their gallery
+  //that will be used to represent as their profile display
+  //selected image is saved in firebase storage
   Future<void> updateProfilePicture(String source) async {
+    final picker = ImagePicker();
     XFile pickedImage;
     try {
-      pickedImage = (await ImagePicker().pickImage(
-          source: source == 'camera' ? ImageSource.camera : ImageSource.gallery,
-          maxWidth: 150))!;
-    } catch (error) {}
+      pickedImage = (await picker.pickImage(
+        source: source == 'camera' ? ImageSource.camera : ImageSource.gallery,
+      ))!;
+
+      fileName = path.basename(pickedImage.path);
+      imageFile = File(pickedImage.path);
+
+      try {
+        showDialog(
+            barrierDismissible: true,
+            context: context,
+            builder: (context) => AlertDialog(
+                title:
+                    Text('Please wait... ', style: GoogleFonts.fanwoodText())));
+
+        await firebase_storage.FirebaseStorage.instance
+            .ref('Profile_image: $fileName')
+            .putFile(imageFile);
+
+        imageURL = await firebase_storage.FirebaseStorage.instance
+            .ref('Profile_image: $fileName')
+            .getDownloadURL();
+
+        setState(() {
+          doneLoading = true;
+        });
+
+        if (!mounted) {
+          return;
+        }
+        Navigator.pop(context);
+      } on firebase_storage.FirebaseException catch (e) {
+        if (kDebugMode) {
+          print('error_firebaseStorage:$e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('errorimage: $e');
+      }
+    }
   }
 
   @override
@@ -71,13 +123,13 @@ class _UpdateState extends State<Update> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromARGB(250, 246, 236, 236),
+      backgroundColor: const Color.fromARGB(250, 246, 236, 236),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color.fromARGB(250, 205, 95, 95),
         leading: IconButton(
             onPressed: () {
-              Get.back();
+              Get.offAndToNamed('/profile');
             },
             icon: Image.asset('assets/images/icons8-left-96 1.png')),
       ),
@@ -86,25 +138,47 @@ class _UpdateState extends State<Update> {
           children: <Widget>[
             Stack(
               children: <Widget>[
-                InkWell(
-                  onTap: () {},
-                  child: Container(
-                    height: 240,
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(250, 205, 95, 95),
-                      borderRadius: BorderRadius.vertical(
-                          bottom: Radius.elliptical(
-                              MediaQuery.of(context).size.width, 100.0)),
-                    ),
+                Container(
+                  height: 240,
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(250, 205, 95, 95),
+                    borderRadius: BorderRadius.vertical(
+                        bottom: Radius.elliptical(
+                            MediaQuery.of(context).size.width, 100.0)),
                   ),
                 ),
                 Center(
-                  child: Container(
-                    height: 150,
-                    width: 150,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
+                  child: InkWell(
+                    onTap: () => updateProfilePicture('gallery'),
+                    child: Container(
+                      height: 150,
+                      width: 150,
+                      decoration: BoxDecoration(
+                        image: (doneLoading)
+                            ? DecorationImage(
+                                fit: BoxFit.cover,
+                                image: NetworkImage(
+                                  imageURL,
+                                ))
+                            : DecorationImage(
+                                fit: BoxFit.cover,
+                                image: (profilePic != '')
+                                    ? NetworkImage(profilePic)
+                                    : const NetworkImage(
+                                        'https://www.freeiconspng.com/uploads/contact-icon-png-1.png',
+                                      ),
+                              ),
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Stack(children: const [
+                        Positioned(
+                          right: 5.0,
+                          bottom: 0.0,
+                          child: Icon(Icons.add_a_photo,
+                              size: 25, color: Colors.blueGrey),
+                        ),
+                      ]),
                     ),
                   ),
                 ),
@@ -270,63 +344,26 @@ class _UpdateState extends State<Update> {
                       final email = emailController.text.trim();
                       final newpass = newpasswordController.text.trim();
                       final rnewpass = rnewpasswordController.text.trim();
-                      print('password: $password');
+                      bool hasInternet =
+                          await InternetConnectionChecker().hasConnection;
                       //Get.offNamedUntil('/home', (route) => true);
-                      if (birthdate.isEmpty ||
-                          age.isEmpty ||
-                          address.isEmpty ||
-                          email.isEmpty &&
-                              (newpass.isEmpty || rnewpass.isEmpty)) {
-                        return showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                title: Text("Failed to Update!",
-                                    style: GoogleFonts.fanwoodText()),
-                                content: Text('Required Fields not filled out',
-                                    style: GoogleFonts.fanwoodText()),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                      },
-                                      child: Text('CLOSE',
-                                          style: GoogleFonts.fanwoodText()))
-                                ],
-                              );
-                            });
-                      } else if (newpass.isNotEmpty || rnewpass.isNotEmpty) {
-                        if (newpass != rnewpass) {
-                          showDialog(
+
+                      if (hasInternet == true) {
+                        if (birthdate.isEmpty ||
+                            age.isEmpty ||
+                            address.isEmpty ||
+                            email.isEmpty &&
+                                (newpass.isEmpty || rnewpass.isEmpty)) {
+                          //pop up dialog that activates when the user tries to update info
+                          //without filling all the required fields
+                          return showDialog(
                               context: context,
                               builder: (context) {
                                 return AlertDialog(
-                                  title: Text("Error",
-                                      style: GoogleFonts.fanwoodText(
-                                          color: Colors.red)),
-                                  content: Text('Both Passwords must match',
+                                  title: Text("Failed to Update!",
                                       style: GoogleFonts.fanwoodText()),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                        },
-                                        child: Text('CLOSE',
-                                            style: GoogleFonts.fanwoodText()))
-                                  ],
-                                );
-                              });
-                        } else if (newpass.length <= 5 &&
-                            rnewpass.length <= 5) {
-                          showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: Text("Password too weak",
-                                      style: GoogleFonts.fanwoodText(
-                                          color: Colors.red)),
                                   content: Text(
-                                      'Must be atleast 6 or more characters',
+                                      'Required Fields not filled out',
                                       style: GoogleFonts.fanwoodText()),
                                   actions: [
                                     TextButton(
@@ -338,12 +375,8 @@ class _UpdateState extends State<Update> {
                                   ],
                                 );
                               });
-                        } else {
-                          updateUserInfoWithPassword(
-                              address, birthdate, email, age, newpass);
-                          user!.updatePassword(newpass).then((_) {
-                            print('password changed');
-                          }).catchError((onError) {
+                        } else if (newpass.isNotEmpty || rnewpass.isNotEmpty) {
+                          if (newpass != rnewpass) {
                             showDialog(
                                 context: context,
                                 builder: (context) {
@@ -351,7 +384,7 @@ class _UpdateState extends State<Update> {
                                     title: Text("Error",
                                         style: GoogleFonts.fanwoodText(
                                             color: Colors.red)),
-                                    content: Text('$onError',
+                                    content: Text('Both Passwords must match',
                                         style: GoogleFonts.fanwoodText()),
                                     actions: [
                                       TextButton(
@@ -363,7 +396,81 @@ class _UpdateState extends State<Update> {
                                     ],
                                   );
                                 });
-                          });
+                          } else if (newpass.length <= 5 &&
+                              rnewpass.length <= 5) {
+                            //popup that notifies user to use strong password
+                            showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: Text("Password too weak",
+                                        style: GoogleFonts.fanwoodText(
+                                            color: Colors.red)),
+                                    content: Text(
+                                        'Must be atleast 6 or more characters',
+                                        style: GoogleFonts.fanwoodText()),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text('CLOSE',
+                                              style: GoogleFonts.fanwoodText()))
+                                    ],
+                                  );
+                                });
+                          } else {
+                            //updates user info including their account password and saves it
+                            //to the database
+                            updateUserInfoWithPassword(address, birthdate,
+                                email, age, newpass, imageURL);
+                            user!.updatePassword(newpass).then((_) {
+                              print('password changed');
+                            }).catchError((onError) {
+                              showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      title: Text("Error",
+                                          style: GoogleFonts.fanwoodText(
+                                              color: Colors.red)),
+                                      content: Text('$onError',
+                                          style: GoogleFonts.fanwoodText()),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text('CLOSE',
+                                                style:
+                                                    GoogleFonts.fanwoodText()))
+                                      ],
+                                    );
+                                  });
+                            });
+                            showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: Text("Profile Updated Successfully",
+                                        style: GoogleFonts.fanwoodText(
+                                            color: Colors.red)),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text('CLOSE',
+                                              style: GoogleFonts.fanwoodText()))
+                                    ],
+                                  );
+                                });
+                          }
+                        } else {
+                          print('IMAGE URL: $imageURL');
+                          //updates user info in the database without changing their account password
+                          updateUserInfowithoutPassword(
+                              address, birthdate, email, age, imageURL);
                           showDialog(
                               context: context,
                               builder: (context) {
@@ -382,30 +489,9 @@ class _UpdateState extends State<Update> {
                                 );
                               });
                         }
-                      } else {
-                        updateUserInfowithoutPassword(
-                            address, birthdate, email, age);
-                        showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                title: Text("Profile Updated Successfully",
-                                    style: GoogleFonts.fanwoodText(
-                                        color: Colors.red)),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                      },
-                                      child: Text('CLOSE',
-                                          style: GoogleFonts.fanwoodText()))
-                                ],
-                              );
-                            });
                       }
                     },
                   ),
-                  //const Padding(padding: EdgeInsets.only(left: 50)),
                   //replaced Padding with expanded to only occupy the available space
                   // in between Save and Cancel button
                   Expanded(child: Container()),

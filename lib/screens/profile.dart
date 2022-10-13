@@ -18,12 +18,15 @@ class Profile extends StatefulWidget {
 
 class _ProfileState extends State<Profile> {
   late String name = '';
+  late String profilePicture = '';
   TextEditingController birthdateController = TextEditingController();
   TextEditingController addressController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController ageController = TextEditingController();
   TextEditingController passController = TextEditingController();
 
+  //function to retreive user's data and display it
+  //using textfield controllers and other widgets
   getUserInfo() async {
     String useruid = FirebaseAuth.instance.currentUser!.uid;
     var getUserInfo = await FirebaseFirestore.instance
@@ -39,6 +42,7 @@ class _ProfileState extends State<Profile> {
         emailController.text = data['email'];
         passController.text = data['password'];
         ageController.text = data['age'] ?? 'Not set';
+        profilePicture = data['profile_picture'] ?? '';
       }
     });
   }
@@ -82,7 +86,19 @@ class _ProfileState extends State<Profile> {
                   child: Container(
                     height: 150,
                     width: 150,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
+                      image: (profilePicture != '')
+                          ? DecorationImage(
+                              fit: BoxFit.cover,
+                              image: NetworkImage(
+                                profilePicture,
+                              ))
+                          : const DecorationImage(
+                              fit: BoxFit.cover,
+                              image: AssetImage(
+                                'assets/images/account_circle.png',
+                              ),
+                            ),
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
